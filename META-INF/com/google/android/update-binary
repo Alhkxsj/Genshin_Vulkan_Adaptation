@@ -1,0 +1,114 @@
+#!/sbin/sh
+
+# KernelSU模块安装二进制文件
+# 本脚本负责模块的安装过程和初始化配置
+# 遵循KernelSU模块安装规范
+
+# 设置跳过默认解压标志，启用自定义安装流程
+SKIPUNZIP=1
+
+# 显示安装标题
+ui_print "=================================="
+ui_print "      原神Vulkan适配模块安装      "
+ui_print "=================================="
+
+# 环境检测阶段
+# 检查KernelSU环境是否存在
+if [ ! -f "/data/adb/ksu/ksud" ]; then
+    ui_print "错误：未检测到KernelSU！"
+    abort "请确保已安装KernelSU"
+fi
+
+# 检查设备是否支持Vulkan
+if ! getprop ro.opengles.version | grep -q "196608"; then
+    ui_print "警告：设备可能不支持Vulkan API"
+    ui_print "模块仍将安装，但可能无法正常工作"
+fi
+
+# 文件提取阶段
+# 从ZIP包中提取必要的模块文件
+ui_print "- 正在提取模块文件..."
+unzip -o "$ZIPFILE" 'module.prop' -d "$MODPATH" >&2
+unzip -o "$ZIPFILE" 'post-mount.sh' -d "$MODPATH" >&2
+unzip -o "$ZIPFILE" 'service.sh' -d "$MODPATH" >&2
+unzip -o "$ZIPFILE" 'gpu_detect.sh' -d "$MODPATH" >&2
+
+# 权限设置阶段
+# 设置模块文件和脚本的执行权限
+ui_print "- 正在设置文件权限..."
+set_perm_recursive "$MODPATH" 0 0 0755 0644
+set_perm "$MODPATH/post-mount.sh" 0 0 0755
+set_perm "$MODPATH/service.sh" 0 0 0755
+set_perm "$MODPATH/gpu_detect.sh" 0 0 0755
+
+# GPU检测阶段
+# 执行GPU检测脚本获取设备GPU信息
+ui_print "- 正在检测设备GPU信息..."
+GPU_INFO=$(sh "$MODPATH/gpu_detect.sh" --detect)
+ui_print "- 检测到的GPU: $GPU_INFO"
+
+# 目录创建阶段
+# 创建游戏配置文件目录
+GAME_DIR="/storage/emulated/0/Android/data/com.miHoYo.Yuanshen/files"
+if [ ! -d "$GAME_DIR" ]; then
+    # 尝试创建目录，处理权限问题
+    mkdir -p "$GAME_DIR" 2>/dev/null || {
+        ui_print "警告：无法创建游戏目录，请确保已安装原神"
+        ui_print "模块将在游戏安装后自动配置"
+    }
+fi
+
+# 基础配置内容
+# 定义Vulkan GPU列表的基础配置
+BASE_CONTENT="4
+Samsung Xclipse 950
+Samsung Xclipse 940
+Samsung Xclipse 920
+Adreno (TM) 840
+Adreno (TM) 830
+Adreno (TM) 825
+Adreno (TM) 750
+Adreno (TM) 740
+Adreno (TM) 640
+Adreno (TM) 730
+Mali-G710
+Mali-G715
+Mali-G720
+Mali-G925
+Mali-G1-Ultra MC12"
+
+# GPU适配阶段
+# 使用GPU检测脚本适配配置文件
+ui_print "- 正在适配GPU配置文件..."
+ADAPTED_CONTENT=$(echo "$BASE_CONTENT" | sh "$MODPATH/gpu_detect.sh" --adapt)
+
+# 配置文件保存阶段
+# 保存适配后的配置到模块目录
+echo "$ADAPTED_CONTENT" > "$MODPATH/adapted_config.txt"
+
+# 写入游戏配置文件
+if [ -d "$GAME_DIR" ]; then
+    echo "$ADAPTED_CONTENT" > "$GAME_DIR/vulkan_gpu_list_config.txt"
+    echo "$ADAPTED_CONTENT" > "$GAME_DIR/vulkan_gpu_list_config_engine.txt"
+    chmod 644 "$GAME_DIR/vulkan_gpu_list_config.txt"
+    chmod 644 "$GAME_DIR/vulkan_gpu_list_config_engine.txt"
+    ui_print "- 配置文件已写入游戏目录"
+else
+    ui_print "- 游戏目录不存在，配置将在游戏安装后自动应用"
+fi
+
+# 模块配置初始化阶段
+# 使用KernelSU模块配置系统存储状态信息
+ui_print "- 正在初始化模块配置..."
+ksud module config set last_check_date "19700101"
+ksud module config set original_gpu_hash "$(echo "$ADAPTED_CONTENT" | md5sum | cut -d' ' -f1)"
+ksud module config set gpu_model "$GPU_INFO"
+ksud module config set install_time "$(date '+%Y-%m-%d %H:%M:%S')"
+
+# 安装完成阶段
+# 显示安装结果和后续说明
+ui_print "- 安装完成！"
+ui_print "- 已适配您的设备GPU型号: $GPU_INFO"
+ui_print "- 模块将在每天凌晨3点自动检查文件"
+ui_print "- 如需手动检查，请重启设备"
+ui_print "=================================="

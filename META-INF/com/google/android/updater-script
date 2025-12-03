@@ -1,0 +1,12 @@
+# KernelSU模块安装脚本
+# 本文件为兼容性脚本，实际安装逻辑由update-binary处理
+
+# 显示安装信息
+ui_print("正在安装原神Vulkan支持与防修改模块...");
+
+# 设置安装路径
+set_progress(0.1);
+
+# 完成安装
+set_progress(1.0);
+ui_print("安装完成！");

@@ -1,0 +1,21 @@
+# 原神Vulkan支持与防修改模块配置文件
+# 本文件定义模块的基本信息和版本
+# 格式遵循KernelSU模块规范
+
+# 模块唯一标识符，必须符合正则表达式：^[a-zA-Z][a-zA-Z0-9._-]+$
+id=yuan_shen_vulkan_support
+
+# 模块显示名称，将在KernelSU管理器中显示
+name=原神Vulkan适配
+
+# 模块版本号，用于版本比较和更新检查
+version=v2.0
+
+# 模块版本代码，必须为整数，用于精确版本比较
+versionCode=20241204
+
+# 模块作者信息
+author=快手阿泠好困想睡觉
+
+# 模块详细描述，说明模块功能和特性
+description=原神Vulkan GPU列表适配与防修改保护，自动检测设备GPU型号并防止配置被篡改
